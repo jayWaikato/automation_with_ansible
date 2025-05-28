@@ -1,0 +1,94 @@
+---
+  - name : automate ios upgrade 
+    hosts : c8000
+    gather_facts: false
+    vars :
+      ansible_command_timeout : 1800
+      new_version : 17.12.09
+      new_ios_size : 2345.0
+    tasks:
+      - name : show version
+        cisco.ios.ios_command:
+          commands:
+            - show version
+        register: sh_version
+
+      - name: Fetch Current version
+        ansible.builtin.set_fact:
+          current_ios_version: "{{ (sh_version.stdout[0] | regex_findall('Cisco IOS XE Software, Version (\\S+)'))[0] }}"
+
+      - name : display version                                 
+        ansible.builtin.debug:
+          msg : "current ios version is {{ current_ios_version }}"
+
+      - name : quit the playbook if the current ios version is equal to or higher than new version
+        block:
+          - name : stack update 
+            ansible.builtin.include_tasks:
+              file: slack_notification.yaml
+            vars :
+              message: "{{ (current_ios_version >= new_version) | ternary('Current version is up to date so update is failed','updating the ios version') }}"
+              status_type : "{{ (current_ios_version >= new_version) | ternary('warning','good')  }}"
+              
+          - name : fail if version is alredy up to date.
+            ansible.builtin.fail:
+              msg: " current ios version is up to date "
+            when: current_ios_version >= new_version
+          
+          - name : upgradeing
+            ansible.builtin.debug:
+              msg : " continuing with the upgrade "
+
+          - name : take  configuraion backup
+            cisco.ios.ios_config:
+              backup: yes
+              backup_options:
+                dir_path: "{{ playbook_dir }}/config_backups/"
+                filename: "{{ inventory_hostname }}_config_{{ lookup('pipe', 'date') }}"
+
+          - name : slack update 
+            ansible.builtin.include_tasks: slack_notification.yaml
+            vars: 
+                message:
+                  ----------------------------------------------------
+                  * Configuration backup is successfully done ! *
+                  ----------------------------------------------------
+                status_type : good
+          - name : gather all legacy facts 
+            cisco.ios.ios_facts:
+              gather_subset:
+                - hardware
+            register: hardware
+
+          - name : fatch available memory
+            ansible.builtin.set_fact:
+              avail_mem : "{{ ansible_facts['net_filesystems_info']['bootflash:']['spacefree_kb'] }}"
+
+          - name : slack update 
+            ansible.builtin.include_tasks: slack_notification.yaml
+            vars:
+              message: "{{ (( avail_mem | int ) > 200000 ) | ternary('space available for new image , continuig the upgrade process', 'space not available for new image , please free up some space') }}"
+              status_type : "{{ (( avail_mem | int ) > 200000) | ternary('good', 'danger') }}"
+
+          - name : check if there is memory available for new image 
+            ansible.builtin.assert:
+              that:
+                - "{{ ( avail_mem | int ) > 200000 }}"
+              fail_msg: "space not available for new image , please free up some space"
+              success_msg: " space available for new image , continuig the upgrade process"
+
+          # note for self : continue once i have the ios image to uodate !
+          # - name : -- 
+
+          
+          
+          
+
+          
+                
+              
+
+              
+                
+
+      

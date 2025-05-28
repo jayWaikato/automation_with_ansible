@@ -1,0 +1,28 @@
+---
+  - name : crate new users and remove old ones thorugh ios module
+    hosts : c8000
+    gather_facts : false
+    vars_prompt : 
+      - name : new_username
+        prompt : " provide new username "
+        private : false
+      - name : new_password
+        prompt : "provide password"
+        private : true
+    tasks :
+      - name : configure new username
+        cisco.ios.ios_user:
+          name : "{{ new_username }}"
+          configured_password: "{{ new_password }}"
+          password_type: secret
+          privilege: 15
+          state:  present
+
+      - name : remove old usernames
+        cisco.ios.ios_user:
+          aggregate:
+            - name : developer
+            - name : "{{ new_username }}"
+          purge : true
+
+          

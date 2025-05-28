@@ -1,0 +1,50 @@
+---
+- name : create new local usernames and remove old ones
+  hosts: c8000
+  gather_facts: false
+  vars_prompt:
+    - name : new_username
+      prompt : "please enter username : "
+      private : false
+    
+    - name : new_password
+      prompt : "please enter a secure password : "
+      private : true
+
+  tasks :
+    - name : configure new user
+      cisco.ios.ios_config:
+        lines : 
+          - username {{ new_username }} privilege 15 secret {{ new_password }}
+        save_when : always
+
+    - name : fetch exsisting users
+      cisco.ios.ios_command:
+        commands: 
+          - show running-config | in username
+      register : user_details
+
+    - name : extract usernames 
+      ansible.builtin.set_fact:
+        usernames : "{{ user_details.stdout[0] | regex_findall('username (\\S+)') }}"
+
+    - name : display users
+      debug:
+        var : usernames
+
+    - name : remove old username 
+      cisco.ios.ios_command:
+        commands:
+          - 'conf t'
+          - command : 'no username {{ item }}'
+            prompt : 'This operation will remove all username related configurations with same name'
+            answer : 'y'
+          - 'end'
+
+      loop : "{{ usernames }}"
+      when : "item != 'developer' and item != new_username"
+
+
+
+
+

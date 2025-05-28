@@ -1,0 +1,18 @@
+all:
+  children:
+    cisco:
+      children:
+        ciscoIOS:
+          hosts:  
+            c8000:                  
+    arista:
+      children:
+        aristaEOS:
+          hosts:
+            EOS1:          
+  vars:
+    inventory_username: jay 
+    inventory_password: jay12345
+    default_username: inventory_user
+    default_password: inventory_123
+    ntp_server: 1.1.1.1
