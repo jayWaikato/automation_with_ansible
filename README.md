@@ -63,7 +63,7 @@ ansible_pro/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/ansible_pro.git
+   git clone https://github.com/jayWaikato/automation_with_ansible
    cd ansible_pro
    ```
 
